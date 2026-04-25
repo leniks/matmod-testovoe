@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Agent Trace Demo</title>
+  <style>
+    body { font-family: sans-serif; max-width: 900px; margin: 24px auto; padding: 0 16px; }
+    h1 { margin-bottom: 8px; }
+    .row { display: flex; gap: 8px; }
+    input { flex: 1; padding: 10px; }
+    button { padding: 10px 14px; cursor: pointer; }
+    #timeline { margin-top: 18px; border: 1px solid #ddd; border-radius: 8px; padding: 12px; min-height: 160px; }
+    .event { border-left: 3px solid #999; padding: 6px 10px; margin: 8px 0; background: #fafafa; }
+    .thought { border-color: #6c5ce7; }
+    .tool_call { border-color: #0984e3; }
+    .tool_result { border-color: #00b894; }
+    .final { border-color: #d63031; font-weight: 600; }
+    pre { margin: 6px 0 0; white-space: pre-wrap; }
+  </style>
+</head>
+<body>
+  <h1>Agent + Tools + SSE</h1>
+  <p>Пример: "Какая погода в Казани и курс доллара к рублю?"</p>
+
+  <div class="row">
+    <input id="message" value="Какая погода в Казани и курс доллара к рублю?" />
+    <button id="run">Запустить</button>
+  </div>
+
+  <div id="timeline"></div>
+
+  <script>
+    const timeline = document.getElementById("timeline");
+    const messageInput = document.getElementById("message");
+    let source = null;
+
+    function addEvent(evt) {
+      const div = document.createElement("div");
+      div.className = `event ${evt.type || ""}`;
+
+      const title = document.createElement("div");
+      title.textContent = evt.type || "event";
+      div.appendChild(title);
+
+      const pre = document.createElement("pre");
+      pre.textContent = JSON.stringify(evt, null, 2);
+      div.appendChild(pre);
+
+      timeline.appendChild(div);
+    }
+
+    document.getElementById("run").addEventListener("click", () => {
+      if (source) source.close();
+      timeline.innerHTML = "";
+      const text = encodeURIComponent(messageInput.value.trim());
+      if (!text) return;
+
+      source = new EventSource(`/chat/stream?message=${text}`);
+      source.onmessage = (event) => {
+        try {
+          addEvent(JSON.parse(event.data));
+        } catch {
+          addEvent({ type: "parse_error", raw: event.data });
+        }
+      };
+      source.addEventListener("done", () => source.close());
+      source.onerror = () => source.close();
+    });
+  </script>
+</body>
+</html>
